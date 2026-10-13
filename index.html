@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RA pills · registry, resolver, follow-ups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    themeVariables: {
+      primaryColor: "#cfe3d6",
+      primaryTextColor: "#1b1d1a",
+      lineColor: "#4a4d46",
+      fontFamily: "IBM Plex Sans, system-ui, sans-serif",
+      secondaryColor: "#f0dcc6",
+      tertiaryColor: "#ebe5d8",
+    },
+  });
+</script>
+<style>
+  :root {
+    --paper: #f3efe6;
+    --paper-2: #ebe5d8;
+    --ink: #1b1d1a;
+    --ink-2: #4a4d46;
+    --ink-3: #7f8178;
+    --rule: #d6cfbf;
+    --base: #1f6f4a;
+    --base-soft: #cfe3d6;
+    --front: #b5651d;
+    --front-soft: #f0dcc6;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0; color: var(--ink);
+    font: 15px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(27,29,26,.07) 1px, transparent 0) 0 0 / 22px 22px,
+      var(--paper);
+  }
+  main { max-width: 920px; margin: 0 auto; padding: 48px 28px 96px; }
+  .kicker { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  h1, h2, h3 { font-family: Fraunces, Georgia, serif; font-weight: 700; letter-spacing: -.01em; }
+  h1 { font-size: 38px; line-height: 1.1; margin: 14px 0 12px; }
+  h2 { font-size: 24px; margin: 52px 0 8px; padding-top: 18px; border-top: 2px solid var(--ink); display: flex; gap: 12px; align-items: baseline; }
+  h2 .n { font: 600 13px var(--mono); color: var(--ink-3); }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p, li { max-width: 820px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--ink-2); font-size: 16px; }
+  a { color: var(--base); text-underline-offset: 3px; }
+  code { font-family: var(--mono); font-size: 12.5px; }
+  .sketch {
+    display: inline-block; margin: 16px 0 0; padding: 6px 10px;
+    border: 1.5px dashed var(--ink-3); font: 500 12px var(--mono);
+    color: var(--ink-2); background: rgba(255,255,255,.4);
+  }
+  .call {
+    margin: 16px 0; padding: 14px 16px; background: #fffdf8;
+    border: 1px solid var(--rule); border-left: 5px solid var(--base);
+  }
+  .opts { display: grid; gap: 10px; margin-top: 12px; }
+  .opt {
+    background: #fffdf8; border: 1px solid var(--rule); padding: 14px 16px;
+  }
+  .opt.pick { border-left: 5px solid var(--base); }
+  .opt h3 { margin: 0 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tag {
+    display: inline-block; font: 600 11px/1 var(--mono); padding: 4px 6px;
+    border-radius: 2px; background: var(--paper-2); color: var(--ink-2);
+  }
+  .tag.yes { background: var(--base); color: #fff; }
+  .tag.no { background: var(--ink); color: #fff; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; background: #fffdf8; font-size: 13.5px; }
+  th {
+    text-align: left; font: 600 11.5px var(--mono); text-transform: uppercase;
+    letter-spacing: .05em; color: var(--ink-3); border-bottom: 2px solid var(--ink);
+    padding: 8px 10px;
+  }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .mermaid { margin: 16px 0; background: #fffdf8; padding: 16px; border: 1px solid var(--rule); }
+  ol.asks { padding-left: 22px; }
+  ol.asks li { margin: 8px 0; }
+  ul.tight { margin: 6px 0; padding-left: 18px; }
+  ul.tight li { margin: 2px 0; color: var(--ink-2); }
+
+  dl.glossary { margin: 8px 0 4px; }
+  dl.glossary dt { font-weight: 600; margin-top: 9px; }
+  dl.glossary dd { margin: 2px 0 0 0; color: var(--ink-2); max-width: 820px; }
+  .cap { font: 500 12.5px/1.45 var(--mono); color: var(--ink-3); margin: 4px 0 18px; max-width: 820px; }
+  .call.proposed { border-left-color: var(--front); }
+</style>
+</head>
+<body>
+<main>
+<p class="kicker">Compass · Retailer Assistant · Path §3</p>
+<h1>Registry, resolver, and follow-ups</h1>
+<p class="sub">Replaces the post-<a href="https://github.com/Faire/datascience/pull/69192">#69192</a> stub (<code>kind → IntentType(kind)</code>). Hub: <a href="https://app.notion.com/p/faire/RA-Pill-Identity-Infra-Initial-Followup-3e92efb5c25a80cf99b9ddad8e448f8c">RA Pill Identity Infra</a> §3 · routing: <a href="https://app.notion.com/p/faire/RA-Intent-Routing-Infra-3e92efb5c25a80218994d11dab033cdd">RA Intent Routing Infra</a>.</p>
+<p class="sketch">v17 · plan · glossary drafted for Cedo · staged/authored proposed, not locked · open items at the bottom</p>
+
+<div class="call">
+  <strong>The plan in short.</strong>
+  <ul class="tight">
+    <li><strong>One registry of pill kinds</strong> (<code>REGISTRIES.pills</code>, Python code in RA). A kind can show up as an entry chip, a follow-up, a staged chip, or more than one of those.</li>
+    <li><strong>A kind is cheap; an intent is a job.</strong> Many kinds can point at one intent, or at none.</li>
+    <li><strong>A pill carries only its ask</strong> (<code>prompt</code>). How to answer lives in the intent’s playbook.</li>
+    <li><strong>Every tap resolves to one <code>PillData</code></strong>: intent (optional), prompt, preloads, and the label that was sent.</li>
+    <li><strong>Follow-up pills are generic.</strong> Each is registered on its own, like a tool. The model writes every follow-up the same way: a kind, a label, a prompt, and entities.</li>
+    <li><strong>RA logs each emission</strong> as <code>{pill_key, kind, label, analytics}</code>. Today only the frontend records impressions and clicks.</li>
+  </ul>
+</div>
+
+<h2 id="glossary"><span class="n">G</span> Glossary + one-tap walkthrough</h2>
+<p>Drafted for Cedo. Terms for reading the rest of this plan. <strong>Staged vs authored is proposed, not locked</strong> — it does not change the v17 decisions, kinds table, or open questions below.</p>
+
+<div class="call proposed">
+  <strong>Staged</strong> exists so dimension chips like <code>mlt_cheaper</code> and <code>mlt_ships_faster</code> keep <strong>correct values</strong> from retrieve (e.g. <code>$18.40</code>, not “under $20”). The tool writes the ask via <code>stage_pill(...)</code> → id; the model only places <code>{staged_id, label}</code>.
+  <ul class="tight">
+    <li><strong>Not a locked decision.</strong> Optional later collapse: one staged <code>mlt_add</code> with <code>facts.dimension</code>.</li>
+    <li><strong>Not landed.</strong> Shipped path is authored <code>emit_follow_up</code> / bound <code>kind:uuid</code>.</li>
+    <li>In code, <code>_staged</code> is only the in-turn bound-chip buffer — not this writer split.</li>
+  </ul>
+</div>
+
+<pre class="mermaid">
+flowchart LR
+  retrieve["retrieve: $18.40"] --> stage["stage_pill(mlt_cheaper, prompt)"]
+  stage --> id["staged_id"]
+  id --> place["model places {staged_id, label}"]
+  place --> chip["chip keeps $18.40"]
+</pre>
+<p class="cap">Proposed staged hop — tool owns the number; model only places the chip. Authored add/relax/explore still invent the ask.</p>
+
+<h3>Terms</h3>
+<dl class="glossary">
+  <dt>Chip</dt><dd>The button on the wire (<code>label</code> + <code>action_id</code> + <code>pill_key</code>).</dd>
+  <dt>Pill</dt><dd>The registered identity behind that button (<code>kind</code>, optional intent, the ask).</dd>
+  <dt>Kind</dt><dd>Frozen <code>lower_snake</code> name in <code>REGISTRIES.pills</code> (<code>sold_on_amazon</code>, <code>mlt_add</code>, <code>ask</code>). Many kinds can share one intent, or none. Not an <code>IntentType</code>.</dd>
+  <dt>Mode</dt><dd>No field. Who wrote <em>this instance</em>: catalog/entry (DAG, bare <code>kind</code>); follow-up authored (model, <code>kind:uuid</code>); preset follow-up (fixed label, still bare <code>kind</code>). Compare is catalog and follow-up on one <code>PillSpec</code>.</dd>
+  <dt>Catalog / entry</dt><dd>PDP strip chip from the DAG bank. DAG owns copy (<code>label</code>); RA owns the tap ask (<code>prompt</code>). Not the follow-up kind <code>catalog_explore</code>.</dd>
+  <dt>Follow-up</dt><dd><code>FollowUpPill</code> in <code>REGISTRIES.follow_ups</code>: a kind the model may offer after a turn. Same <code>PillSpec</code> table.</dd>
+  <dt>Preset</dt><dd>Fixed <code>spec.label</code>; encoder emits bare <code>kind</code>, writes no binding (<code>compare_similar_products</code>).</dd>
+  <dt>Bound</dt><dd><code>emit_follow_up</code> mints a uuid; chip carries <code>kind:uuid</code>; <code>finish</code> writes <code>last_turn_pills[uuid]</code>.</dd>
+  <dt>Staged</dt><dd>Proposed writer for dimension chips — see callout. Not locked, not landed.</dd>
+  <dt><code>pill_key</code></dt><dd><code>kind</code> (catalog or preset); <code>kind:uuid</code> (bound; uuid = <code>action_id</code>); <code>ask:&lt;uuid&gt;</code> / <code>ask_&lt;intent&gt;:&lt;uuid&gt;</code>. Leading <code>:</code> is rejected.</dd>
+  <dt>Ask</dt><dd>(1) reserved kind <code>ask</code> (<code>intent=None</code>); (2) <code>ask_&lt;intent&gt;</code> generic chip; (3) the <strong>prompt</strong>, the next user message. On a resolve hit, the chip label is never that message.</dd>
+  <dt>Generic</dt><dd>(1) <code>ask</code> / <code>ask_&lt;intent&gt;</code> freeform; (2) a kind’s fixed <code>PillSpec.prompt</code> on a <em>bare-kind</em> tap; (3) <code>resolve</code> → <code>None</code> → typed text (chip <strong>label</strong>). A <code>kind:uuid</code> miss must not use (2).</dd>
+  <dt><code>PillSpec</code></dt><dd>Registry row (kind, intent, optional fixed prompt/label).</dd>
+  <dt><code>PillData</code></dt><dd>What <code>resolve()</code> returns for this tap.</dd>
+  <dt><code>FollowUpPill</code></dt><dd>A spec plus <code>docs</code>, optional <code>check</code> / pydantic <code>model</code>+<code>encode</code>.</dd>
+  <dt>Binding</dt><dd><code>last_turn_pills[action_id]</code>: intent, prompt, tokens, <code>pill_key</code>. Replaced every <code>finish</code>. 3-day Dynamo not read by <code>resolve</code> yet.</dd>
+  <dt>Resolve</dt><dd>Tap (<code>action_id</code> and/or <code>pill_key</code>) → <code>PillData | None</code>. Uuid/<code>action_id</code> → bindings only (never the registry). Bare kind → registry. <code>None</code> → typed text.</dd>
+</dl>
+
+<h3>MLT add, bound</h3>
+<p>After retrieve, the model writes direction <code>add</code>, label <code>look for floral versions</code>, prompt <code>Show products like this one with a floral pattern</code>.</p>
+<pre class="mermaid">
+sequenceDiagram
+  participant Model
+  participant Encode as emit_follow_up
+  participant Bind as last_turn_pills
+  participant FE as Frontend
+  participant R as resolve()
+  Model->>Encode: MoreLikeThisPill add
+  Encode->>Encode: kind mlt_add + uuid
+  Encode->>Bind: bind action_id = uuid
+  Note over FE: chip mlt_add:uuid · look for floral versions
+  FE->>R: PillClickAction
+  R->>Bind: lookup uuid
+  Bind-->>R: stored prompt + MORE_LIKE_THIS
+  R-->>Model: user_text = stored prompt
+</pre>
+<p class="cap">Registry registers <code>mlt_add</code> with no fixed prompt. Miss (stale / other tab today) → <code>None</code>, never a generic registry prompt. Intent activates on bound tokens.</p>
+
+<h3>Catalog <code>sold_on_amazon</code></h3>
+<pre class="mermaid">
+sequenceDiagram
+  participant DAG
+  participant Spec as CATALOG_PILLS
+  participant FE as Frontend
+  participant R as resolve()
+  participant Model
+  DAG->>FE: PDP chip sold_on_amazon + DAG label
+  Spec-->>R: fixed prompt on kind
+  FE->>R: MessageAction pill_key = sold_on_amazon
+  R-->>Model: spec.prompt as user message
+</pre>
+<p class="cap">Bare kind, no uuid, no binding. DAG copy is not the user-turn slot. A fake <code>sold_on_amazon:&lt;uuid&gt;</code> with no binding is <code>None</code> (label as typed text), not the Amazon prompt.</p>
+
+<table>
+  <thead><tr><th>Hop</th><th>MLT add</th><th>Amazon entry</th></tr></thead>
+  <tbody>
+    <tr><td>Author</td><td>Model + encoder</td><td>DAG + catalog spec</td></tr>
+    <tr><td>Key</td><td><code>mlt_add:&lt;uuid&gt;</code></td><td><code>sold_on_amazon</code></td></tr>
+    <tr><td>Store</td><td><code>last_turn_pills[uuid]</code></td><td>none</td></tr>
+    <tr><td>FE tap</td><td><code>PillClickAction</code></td><td><code>MessageAction.pill_key</code></td></tr>
+    <tr><td>Resolve</td><td>binding</td><td>registry</td></tr>
+    <tr><td>User message</td><td>stored prompt (+ Focus on)</td><td><code>spec.prompt</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Why a 3-day bindings store?</h3>
+<p><code>last_turn_pills</code> is wholesale-replaced every <code>finish</code>. A back-button, reopened panel, or other-tab tap on an earlier chip already misses and becomes the <strong>label as typed text</strong>. The 3-day retailer-scoped Dynamo store exists so those later taps still hit the <strong>same stored prompt and intent</strong>. A miss still never strips to bare kind and never runs that kind’s generic registry prompt. TTL only starts to matter once DS reads that store.</p>
+
+<h2><span class="n">01</span> Why</h2>
+<p>Pills are how most retailers start and continue an RA conversation. Today a tap is handled three different ways: entry pills run as typed text (their key only picks a guidance string), compare-similar is an intent the frontend sends, and generated follow-ups look up a map that lasts one turn. Most behavior lives in prompts. A registry fixes four things:</p>
+<ul class="tight">
+  <li><strong>Consistency.</strong> A kind behaves the same on every tap, as an entry chip or a follow-up, because code sets its intent and prompt. Prompting alone makes behavior hard to guarantee or customize; More Like This entry is “less solidified in code” without it.</li>
+  <li><strong>Latency.</strong> The <a href="https://app.notion.com/p/faire/Assistant-core-and-session-management-architecture-and-principles-3e82efb5c25a81fc8229eeaafe1b96a4">core principle</a> is to do work on this turn so the pill answers fast on the next. A pill that carries its preload (e.g. “Sold on Amazon” carrying its search, <a href="https://app.notion.com/p/faire/Retailer-Assistant-Latency-Opportunity-3df2efb5c25a8139b9a5c052101e02de">latency opportunity</a>, COM-1214) skips an LLM round trip.</li>
+  <li><strong>Control of follow-ups.</strong> Today a follow-up appears only if the model writes it. With server-defined kinds an intent can offer, hide, or pin chips — e.g. the <a href="https://app.notion.com/p/faire/PRD-RA-More-Like-This-3cd2efb5c25a81faac46fc74769edf54">MLT PRD</a>’s always-first “show me more” plus random dimension chips.</li>
+  <li><strong>Testing and analytics.</strong> A stable kind is the unit we read CTR on. Catalog copy tests today mint a new key per wording; that stays the DAG’s job. Fixed-copy kinds (compare) keep one kind and one English label on the spec. The <a href="https://app.notion.com/p/faire/RA-pills-experiment-roadmap-3eb2efb5c25a81d18096e351d247db1d">pills experiment roadmap</a> (§5) lists pills that need this: a “margin at this price” follow-up, “compare with the one you just viewed”, “what else gets me to this brand’s minimum?”, and faster More Like This.</li>
+</ul>
+<p>The current stub only works when the kind string equals an <code>IntentType</code>. It can’t point several kinds at one intent, carry a prompt or preload, or see follow-up kinds.</p>
+
+<h2><span class="n">02</span> The registry</h2>
+<p><code>REGISTRIES.pills</code> is a Python registry in RA, like <code>REGISTRIES.tools</code>. It is not a Dynamo table. Dynamo holds two other things: the DAG’s serving rows (<code>flare-host.compass_pdp_chat_initial_pills</code>: product → <code>[{key, label, group, context}]</code>) and, later, the bindings store (§03). A duplicate kind fails at import.</p>
+<p><strong>Who owns what.</strong> The registry owns what a kind <em>means</em> (intent, optional fixed prompt, optional fixed English label, preload, eligibility). The DAG owns <em>which products get which catalog chip</em> and that chip’s copy; wording tests there mint a new key. flare-host also serves some entry chips (today, compare) from the same registry, and it pins, shuffles, caps and cohort-gates the PDP list. The DAG doesn’t import RA code: RA checks in a manifest (a test keeps it equal to the registry). An Airflow test fails if the DAG serves a key missing from it, gates it differently, or serves a different label for a kind whose <code>PillSpec.label</code> is set. The manifest does not push catalog copy into the DAG.</p>
+<p><strong>Mode is per chip, not per kind.</strong> It names who wrote this instance’s prompt and entities, and when. That decides whether the tap needs a binding. A kind can have more than one mode — compare is an entry chip from flare-host and a follow-up in chat, both using the same spec.</p>
+<table>
+  <thead><tr><th>mode</th><th>who places it</th><th>who writes prompt / entities</th><th>key</th><th>binding?</th></tr></thead>
+  <tbody>
+    <tr><td><code>catalog</code></td><td>DAG or flare-host, on the PDP</td><td>the spec (fixed) + the page product</td><td><code>kind</code></td><td>no</td></tr>
+    <tr><td><code>follow-up</code>, fixed</td><td>the model chooses the kind</td><td>the spec (fixed) + the page</td><td><code>kind</code></td><td>no</td></tr>
+    <tr><td><code>follow-up</code>, model-written</td><td>the model</td><td>the model, cleaned by <code>check</code></td><td><code>kind:uuid</code></td><td>yes</td></tr>
+    <tr><td><code>staged</code></td><td>the model places by id</td><td>a tool, from data, during the turn</td><td><code>kind:uuid</code></td><td>yes, only if placed</td></tr>
+  </tbody>
+</table>
+<p>At tap time, model-written and staged chips look the same: a <code>PillData</code> in the bindings store. Staged kinds still need a <code>PillSpec</code> (intent, analytics, optional fixed label) but no <code>FollowUpPill</code>, because the model never writes them freely.</p>
+<p>Today’s chips as kinds:</p>
+<table>
+  <thead><tr><th>kind</th><th>intent</th><th>mode</th><th>notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>sold_on_amazon</code></td><td><code>product_research</code></td><td>catalog</td><td>Fixed prompt: check whether this product is on Amazon and compare price.</td></tr>
+    <tr><td><code>product_material</code>, <code>product_scent</code>, …</td><td><code>product_research</code></td><td>catalog</td><td>Eligibility: the C3 category list the DAG uses today.</td></tr>
+    <tr><td><code>more_like_this</code></td><td><code>more_like_this</code></td><td>catalog</td><td>Entry chip only.</td></tr>
+    <tr><td><code>compare_similar_products</code></td><td><code>compare</code></td><td>catalog + follow-up</td><td>Fixed label and prompt. flare-host adds it as an entry chip; the model can also choose it in chat. Candidates gathered on tap.</td></tr>
+    <tr><td><code>mlt_add</code>, <code>mlt_relax</code>, <code>mlt_explore</code></td><td><code>more_like_this</code></td><td>follow-up</td><td>Three pills; the model writes label and prompt.</td></tr>
+    <tr><td><code>mlt_cheaper</code>, <code>mlt_ships_faster</code>, …</td><td><code>more_like_this</code></td><td>staged</td><td>The retrieve tool draws the dimensions and writes the asks.</td></tr>
+    <tr><td><code>mlt_show_more</code></td><td><code>more_like_this</code></td><td>staged</td><td>Pinned first; carries the terms already applied.</td></tr>
+    <tr><td><code>catalog_explore</code></td><td><code>product_research</code></td><td>follow-up</td><td>Model writes label and prompt.</td></tr>
+    <tr><td><code>ask_&lt;intent&gt;</code></td><td>that intent</td><td>follow-up</td><td>Generic chip, one per intent, made from <code>intent_pill_docs()</code>.</td></tr>
+    <tr><td><code>ask</code></td><td>none</td><td>follow-up</td><td>Generic chip with no intent; answered like a typed question (orders, cart).</td></tr>
+  </tbody>
+</table>
+<p><strong>Generic kinds.</strong> Generic chips use the reserved <code>ask</code> names: <code>ask:&lt;uuid&gt;</code> with no intent, <code>ask_&lt;intent&gt;:&lt;uuid&gt;</code> with one. No named kind starts with <code>ask</code>, so a generic chip can’t collide with a named one like <code>more_like_this</code>.</p>
+<p><strong>Eligibility.</strong> Catalog kinds record where they may be shown (e.g. the C3 list for category pills). The DAG still enforces it; the manifest test keeps the two in sync. For follow-ups, each pill’s <code>check</code> decides per chip. flare-host’s extra gates (pin, shuffle, cap, cohort) stay in flare-host.</p>
+
+<h2><span class="n">03</span> Resolving a tap</h2>
+<pre style="font:13px/1.45 var(--mono);background:#fffdf8;border:1px solid var(--rule);padding:14px;overflow:auto">@dataclass(frozen=True)
+class PillSpec:          # one registry row
+    kind: str
+    intent: IntentType | None              # None = base assistant
+    prompt: str | None = None              # fixed ask, for taps with no instance
+    label: str | None = None               # fixed English copy, if this kind has one
+    eligibility: Eligibility | None = None # catalog only, e.g. C3 list
+    preload: tuple[PreloadSpec, ...] = ()
+
+@dataclass(frozen=True)
+class PillData:          # what a tap resolves to
+    kind: str
+    intent: IntentType | None
+    prompt: str | None
+    label: str | None                      # the copy that was sent; never shown to the model
+    preload: tuple[Preload, ...]           # ContextPreload | ToolPreload
+    analytics: Mapping[str, str]           # logged only, never read to answer
+
+def resolve(pill_key, retailer) -> PillData | None
+</pre>
+<p><strong>Two places a tap can resolve:</strong></p>
+<ul class="tight">
+  <li><strong>The registry</strong> holds one row per <em>kind</em>: what that kind of chip means. Engineers write it in code.</li>
+  <li><strong>The bindings store</strong> (Dynamo) holds one <code>PillData</code> per <em>chip</em> (<code>kind:uuid</code>): the prompt, entities and label of one specific chip. The encoder writes it when the chip is created. It has a 3-day TTL and rejects a tap from a different retailer. Until it ships, <code>last_turn_pills</code> is the stand-in — but each turn replaces that map, so a tap on an older chip or from another tab misses today. The 3-day store will start resolving those; that is intended.</li>
+</ul>
+<p>A <code>kind</code> tap builds <code>PillData</code> from its row plus the page (<code>label</code> from the spec if set, else the text the frontend sent). A <code>kind:uuid</code> tap reads it from the store. Either way the rest of the pipeline sees one type.</p>
+<h3>Where the label lives</h3>
+<ul class="tight">
+  <li><strong><code>PillSpec.label</code></strong> is the English source of truth for kinds with fixed copy (compare, “Show me more”). The frontend localizes by kind. It replaces today’s three copies of the compare string (RA preset, flare-host constant, frontend).</li>
+  <li><strong><code>PillData.label</code></strong> is what was actually sent. Bindings store it for <code>kind:uuid</code> chips. A tap built from a bare kind uses the spec’s label, or None.</li>
+  <li><strong>Catalog copy</strong> stays on the DAG row. The registry does not own it, and copy tests there keep minting new keys.</li>
+  <li><strong>The tap still sends the label as the user message.</strong> Nothing resolves through that text. The stored label is for logging, and to flag a mismatch with what the client sent.</li>
+</ul>
+<p><strong>Emission log.</strong> RA has no server impression event today; only the frontend’s impression and click events carry the label. Each emitted chip gets one server event <code>{pill_key, kind, label, analytics}</code>. That is what makes CTR by kind joinable. Model-written chips today go out with <code>action_id</code> rather than <code>pill_key</code>, so their CTR can only be read by label text until the key switch lands.</p>
+<table>
+  <thead><tr><th>key</th><th>looked up in</th><th>if missing</th></tr></thead>
+  <tbody>
+    <tr><td><code>kind</code> (catalog, fixed follow-ups)</td><td>registry</td><td>typed text</td></tr>
+    <tr><td><code>kind:uuid</code> (model-written follow-ups, staged)</td><td>bindings store</td><td>the row’s fixed prompt if it has one, else typed text; never a bare kind that would lose the chip’s terms</td></tr>
+    <tr><td>anything else</td><td>—</td><td>the label as typed text</td></tr>
+  </tbody>
+</table>
+<h3>Intent and prompt</h3>
+<ul class="tight">
+  <li><strong><code>intent</code></strong> picks the job. <code>None</code> is allowed: the turn runs like a typed turn (base prompt, base tools, <code>switch_intent</code> available).</li>
+  <li><strong><code>prompt</code></strong> is the pill’s ask, the only text it sends beyond its label. It replaces the hub’s <code>guidance</code> and <code>PillBinding.prompt</code>.</li>
+  <li><strong>Rule:</strong> anything like “when answering X, do Y” belongs in a playbook, so that pill needs an intent. This keeps <code>_GUIDANCE_BY_PILL_KEY</code> from coming back.</li>
+</ul>
+<h3>Preload</h3>
+<ul class="tight">
+  <li><code>ContextPreload(entities, facts)</code>: loaded into the turn, nothing runs. <code>entities</code> are tokens to fetch (products, brands; “compare these three”). <code>facts</code> are typed data RA can’t work out at tap time (why the DAG showed the chip, a filter to apply). Typed, so they never become a second prompt.</li>
+  <li><code>ToolPreload(tool_name, arguments)</code>: a registered tool run before the model, entering as if the model had called it (COM-1214).</li>
+</ul>
+<p>Rows hold templates (“retrieve with the page product”); stored chips hold the filled-in values. The retailer comes from the session, never from the pill.</p>
+
+<h2><span class="n">04</span> Follow-up pills</h2>
+<p>A follow-up pill is registered on its own, next to its intent’s code, the way tools register. Intents don’t declare follow-ups. The schema builder, cleanup passes and encoder in <code>core/follow_up_pills.py</code> stay; they read these registrations instead of intent hooks.</p>
+<pre style="font:13px/1.45 var(--mono);background:#fffdf8;border:1px solid var(--rule);padding:14px;overflow:auto">@dataclass(frozen=True)
+class FollowUpPill:
+    spec: PillSpec                 # kind, intent, prompt, label, preload
+    docs: str                      # when the model should use it
+    check: Callable[[TurnRunContext, Chip], PillData | None] | None = None
+    max_per_response: int | None = None
+
+@dataclass(frozen=True)
+class Chip:                        # what the model writes, for every follow-up
+    kind: str                      # one of the registered follow-up kinds
+    label: str | None = None       # ignored when the spec has a fixed label
+    prompt: str | None = None      # ignored when the spec has a fixed prompt
+    entity_tokens: tuple[str, ...] = ()
+
+REGISTRIES.add_follow_up(FollowUpPill(...))
+</pre>
+<ul class="tight">
+  <li><strong>Same inputs as every pill.</strong> A follow-up resolves to the same <code>PillData</code> as an entry pill: prompt and preload, with entities in <code>ContextPreload.entities</code>, plus the label that was sent.</li>
+  <li><strong>Fixed or model-written.</strong> A spec with a fixed label and prompt (compare) is one the model only chooses. A spec without them (add, relax, explore; catalog explore; <code>ask_&lt;intent&gt;</code>) is one the model writes.</li>
+  <li><strong><code>check</code></strong> is optional. It sees the turn and the chip, can drop it (no grid this turn, an ask the search can’t serve), and can add server data (the anchor product). Without it, the chip’s prompt and entities go straight into <code>PillData</code>.</li>
+  <li><strong>Gating</strong> follows the pill’s intent: a gated-off intent’s pills are left out, as today. An active intent can still hide others’ pills with <code>suppressed_follow_ups()</code> (today’s <code>suppressed_preset_pill_ids()</code>).</li>
+</ul>
+<h3>What the model sees</h3>
+<p>One chip shape. Its <code>kind</code> field lists every follow-up kind with its <code>docs</code>. The schema is built once per gate state, as today. Staged chips use a small extra shape, <code>{staged_id, label}</code>.</p>
+<h3>Staged chips</h3>
+<p>A tool stages a chip with <code>run_context.stage_pill(kind, prompt, preload, label=None, pin=False)</code> and gets back an id, which it returns in its result so the model can place it. If <code>label</code> is omitted, the spec’s fixed label is used when it has one. A pinned chip is placed first and takes one of the three slots (the model’s last chip is dropped). Unknown <code>staged_id</code>s, including ones copied from an older turn, are dropped. The model cannot write a staged kind as a plain <code>Chip</code>; that is dropped too. Only tools that stage chips touch this. Compare’s pills-only custom-response run must share this turn’s run context so staged chips from tools in that run can be placed.</p>
+<h3>What the encoder does each turn</h3>
+<ol>
+  <li>Validate the block. If it’s invalid, show no chips (as today).</li>
+  <li>Put pinned staged chips first; swap each staged id for its chip; drop unknown ids.</li>
+  <li>Run each pill’s <code>check</code>; drop chips it rejects and hidden kinds.</li>
+  <li>Per-pill limits and label dedupe, as today.</li>
+  <li>Keep exactly three, as today. Don’t refill dropped slots; count drops in a metric.</li>
+  <li>Create the key. For <code>kind:uuid</code>, write <code>PillData</code> (including the sent label) to bindings. Emit <code>{pill_key, kind, label, analytics}</code> and send the chip. Unplaced staged chips are never written.</li>
+</ol>
+<h3>More Like This in this design</h3>
+<table>
+  <thead><tr><th>behavior</th><th>how it’s defined</th></tr></thead>
+  <tbody>
+    <tr><td>Add / relax / explore chips</td><td>Three follow-up pills (<code>mlt_add</code>, <code>mlt_relax</code>, <code>mlt_explore</code>), each with docs. One shared <code>check</code> drops a chip with no grid this turn, no anchor, an ask the search can’t do (margin, stock, photo), or a relax of a term that isn’t applied, and adds the anchor.</td></tr>
+    <tr><td>Random dimension chips</td><td>The retrieve tool stages one chip per drawn ask (<code>mlt_cheaper</code>, …), so the ask reaches the tap exactly as written.</td></tr>
+    <tr><td>“Show me more”</td><td>Staged with <code>pin=True</code>, carrying the applied terms. Fixed label on the spec.</td></tr>
+    <tr><td>Filters a tap applies</td><td>In <code>ContextPreload.facts</code>.</td></tr>
+  </tbody>
+</table>
+<p>Playbooks still guide which mix of chips to write; what each chip may be, and its checks, live in code.</p>
+<h3>Add vs dimension chips</h3>
+<p>These look the same in the product — both add one constraint to the current search — but they are different kinds because a different writer owns the ask.</p>
+<ul class="tight">
+  <li><strong>Add / relax / explore</strong> are model-written. The model invents the constraint from the conversation (“only ceramic”, drop “under $20”, try a nearby style), writes the label and prompt, and <code>check</code> drops asks the search can’t do. Relax is only valid for a term that’s already applied. Explore is an adjacent ask, not a filter on this grid.</li>
+  <li><strong>Dimension chips</strong> are a closed PRD list (<code>cheaper</code>, <code>ships_faster</code>, <code>no_minimum</code>, <code>made_in_country</code>, <code>ships_from_country</code>). The retrieve tool sees which of those are still eligible, draws one or two at random, and writes the exact ask (e.g. “Show me more like this under $14 wholesale” from the anchor’s wholesale price). Staging exists so the model cannot paraphrase that number away.</li>
+</ul>
+<p>Keeping them as separate kinds also keeps CTR per dimension without parsing labels. Collapsing dimensions onto <code>mlt_add</code> (staged, with <code>facts.dimension</code>) is possible later if we want fewer rows.</p>
+<p>The same split applies outside MLT: a follow-up the model should invent is a <code>FollowUpPill</code> the model writes; a follow-up whose ask is already computed this turn is staged.</p>
+
+<h2><span class="n">05</span> A tap, end to end</h2>
+<pre class="mermaid">
+flowchart LR
+  tap["tap pill_key"] --> resolve["resolve()"]
+  resolve --> none["None → typed text"]
+  resolve --> data["PillData"]
+  data --> gate{"gated / can't start here?"}
+  gate -->|yes| refuse["refuse, keep state"]
+  gate -->|no| run["intent playbook, or base if None"]
+  data --> pre["load context, run tool preloads"]
+  run --> fu["encoder → chips"]
+</pre>
+<ol>
+  <li>The frontend sends back <code>pill_key</code> (and, during the switch, still <code>action_id</code>); <code>resolve</code> returns <code>PillData</code> or None (typed text).</li>
+  <li>If the intent is gated or says it can’t start on this page, refuse and keep state. The page check moves into the intent; core’s hard-coded “needs a product page” goes away.</li>
+  <li>Activate the intent (or none), load <code>ContextPreload</code>, run <code>ToolPreload</code>s, and send the prompt (where it goes is an open question below).</li>
+  <li>Answer, then build follow-ups through the encoder.</li>
+</ol>
+<p>Entry and follow-up taps take the same path.</p>
+
+<h2><span class="n">06</span> Intents are jobs, kinds are cheap</h2>
+<p>A new intent is little code (an <code>IntentType</code>, a folder with summary, playbook and <code>activate</code>, one registration). The cost is elsewhere: its summary is in every turn’s prompt, it’s one more option for routing to pick wrongly, it must start from just the page and text, and it needs a playbook, gate and evals. So a new pill is a new kind on an existing intent. A new intent is for when a job outgrows its playbook.</p>
+
+<h2 style="border-top-style:dashed"><span class="n">—</span> Still considering</h2>
+<p>Not part of the plan above. Comment here to pull something in.</p>
+
+<h3>Open questions</h3>
+<ol class="asks">
+  <li><strong>Where the prompt goes on tap.</strong> Today the stored prompt becomes the next user message, and More Like This relies on it (the next retrieve edits the last one). The hub makes the label the user message and puts the prompt in <code>turn_context</code>. Keep today’s behavior, or switch and re-run the MLT tap evals?</li>
+  <li><strong>First preload user.</strong> Compare-similar, MLT retrieve, or ship with no preloads until COM-1214?</li>
+  <li><strong>Manifest test scope.</strong> Category pills first, or every catalog kind at once?</li>
+  <li><strong>Custom fields on a chip.</strong> If a future pill needs structured input (a numeric price bound), let a <code>FollowUpPill</code> supply its own model. Nothing needs it today.</li>
+  <li><strong>Pinning.</strong> A pinned chip takes one of the three slots; a fourth chip would change the schema and the frontend layout.</li>
+  <li><strong>Key switch.</strong> Follow-ups today send <code>action_id</code>, and <code>pill_click.action_id</code> is required. Moving to <code>kind:uuid</code> on <code>pill_key</code> needs a frontend and proto change. Accept both until old clients are gone. Fine that this takes time.</li>
+  <li><strong>Emission log.</strong> New server event per chip. Fine that this is new work; CTR by kind does not exist without it.</li>
+  <li><strong>Amazon preload.</strong> Ship with the fixed prompt only, or add <code>ToolPreload(web_search)</code> too?</li>
+</ol>
+
+<h3>Later: server-side compare availability</h3>
+<p>Compare should only show when there are products to compare. Today the frontend checks (<code>isCompareAvailable</code>, COM-843). Moving that into compare’s <code>check</code> needs:</p>
+<ul class="tight">
+  <li><strong>A cheap candidate check</strong> at the end of each turn. If it fetches candidates, it can also be compare’s preload.</li>
+  <li><strong>Measurement:</strong> how often compare is picked before and after, plus drop counts.</li>
+  <li><strong>Then remove the frontend check.</strong></li>
+</ul>
+<p>Compare keeps its bare key (<code>compare_similar_products</code>) on both the PDP and in chat, because its label and prompt are fixed on the spec.</p>
+
+<h3>Alternatives considered</h3>
+<table>
+  <thead><tr><th>Alternative</th><th>Why not</th></tr></thead>
+  <tbody>
+    <tr><td>Follow-up kinds on intents only, outside the registry</td><td><code>resolve</code> can’t see them; compare stays a special case.</td></tr>
+    <tr><td>The DAG owns every kind</td><td>The DAG produces entry chips, not in-chat ones.</td></tr>
+    <tr><td>Keep today’s three hooks, just require registered kinds</td><td>Least code, but three ways to add a chip remain. Fallback if this is too big a step.</td></tr>
+    <tr><td>A core bank of offered pills with free-form kinds</td><td>Kept as staged chips, but each must use a registered kind.</td></tr>
+    <tr><td>Per-turn filtering by kind only, no per-chip check</td><td>MLT and catalog-explore drop chips based on their content and add server data; <code>check</code> does that.</td></tr>
+    <tr><td>Each intent defines its own chip shapes (arms), plus separate preset and staged types</td><td>Three new types per intent. Both custom shapes in use (catalog explore, MLT) only have label, prompt and entities, so one shared chip shape covers them.</td></tr>
+    <tr><td>Follow-ups declared through intent hooks (<code>follow_ups()</code>, <code>offer()</code>)</td><td>Standalone registration, like tools, keeps intents unchanged.</td></tr>
+    <tr><td>A separate preset list with its own shape</td><td>A fixed-label follow-up in the shared shape does the same, and removes look-alike conversion.</td></tr>
+    <tr><td>“Levers” on a preset row with a prompt template</td><td>Can’t do a server-side random draw or a model-written prompt; replaced by staged chips and model-written follow-ups.</td></tr>
+    <tr><td>Change the schema each turn</td><td>Breaks the schema built once per gate state.</td></tr>
+    <tr><td>An intent required on every pill</td><td>Orders and cart chips have no honest intent.</td></tr>
+    <tr><td>A free-text field in <code>ContextPreload</code></td><td>Duplicates <code>prompt</code>; data stays typed in <code>facts</code>.</td></tr>
+    <tr><td>One mode per kind</td><td>Compare is already an entry chip and a follow-up. Mode describes an instance, not the kind.</td></tr>
+    <tr><td>No label on <code>PillSpec</code> / <code>PillData</code></td><td>Tap doesn’t need it, but analytics and a single English source for fixed copy do. Catalog copy stays on the DAG.</td></tr>
+    <tr><td>Push DAG labels from the manifest</td><td>The DAG owns wording tests (new key per copy). The test only fails when a fixed-label kind is served with a different string.</td></tr>
+    <tr><td><code>kind:uuid</code> on entry taps</td><td>Nothing to store; the page product is the only data.</td></tr>
+    <tr><td>Generic chips keyed by the intent name</td><td>Collides with named kinds like <code>more_like_this</code>; the <code>ask</code> names avoid it.</td></tr>
+    <tr><td>Eligibility only in DAG SQL</td><td>Drifts from what RA thinks the kind is.</td></tr>
+    <tr><td>One intent per pill (e.g. an Amazon intent)</td><td>Prompt and routing cost; only when a job outgrows its playbook.</td></tr>
+  </tbody>
+</table>
+
+<h3>Today’s hooks this replaces</h3>
+<table>
+  <thead><tr><th>today</th><th>becomes</th><th>used by</th></tr></thead>
+  <tbody>
+    <tr><td><code>preset_pills()</code></td><td>a kind with <code>PillSpec.label</code> + prompt, used as catalog and as follow-up</td><td>Compare</td></tr>
+    <tr><td><code>custom_pills()</code></td><td><code>FollowUpPill</code>s the model writes</td><td>Product research (catalog explore), MLT</td></tr>
+    <tr><td>Generic intent pill</td><td><code>ask_&lt;intent&gt;</code> follow-ups</td><td>Every intent except Explore</td></tr>
+    <tr><td><code>suppressed_preset_pill_ids()</code></td><td><code>suppressed_follow_ups()</code></td><td>Explore</td></tr>
+    <tr><td>Look-alike conversion</td><td>not needed (one shape)</td><td>Compare</td></tr>
+    <tr><td>Tool results the model copies</td><td>staged chips</td><td>MLT</td></tr>
+  </tbody>
+</table>
+</main>
+</body>
+</html>
