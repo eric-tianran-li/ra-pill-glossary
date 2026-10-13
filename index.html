@@ -98,16 +98,25 @@
   .cap { font: 500 12.5px/1.45 var(--mono); color: var(--ink-3); margin: 4px 0 18px; max-width: 820px; }
   .call.proposed { border-left-color: var(--front); }
 
-  .mm { margin: 14px 0 4px; background: #fffdf8; padding: 12px 14px; border: 1px solid var(--rule); overflow-x: auto; }
+  .mm { margin: 12px 0 6px; background: #fffdf8; padding: 10px 12px; border: 1px solid var(--rule); overflow-x: auto; }
   .mm .mermaid { margin: 0; background: transparent; padding: 0; border: 0; }
   .legend { display: flex; gap: 18px; flex-wrap: wrap; font: 500 12.5px/1.4 var(--mono); color: var(--ink-2); margin: 10px 0 4px; }
   .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 1.5px solid; }
   .legend .reg::before { background: #cfe3d6; border-color: #1f6f4a; }
   .legend .bind::before { background: #f0dcc6; border-color: #b5651d; }
   .legend .miss::before { background: #e9e4e4; border-color: #7a2e2e; }
-  .flows { display: grid; grid-template-columns: 1fr; gap: 6px; }
   h4 { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin: 18px 0 0; }
   ul.gloss li { margin: 6px 0; color: var(--ink); }
+  .case { margin: 22px 0; padding: 16px 18px 6px; background: #fffdf8; border: 1px solid var(--rule); border-top: 3px solid var(--ink); }
+  .case.reg { border-top-color: var(--base); }
+  .case.bind { border-top-color: var(--front); }
+  .case.miss { border-top-color: #7a2e2e; }
+  .case.prop { border-top-style: dashed; border-top-color: var(--front); }
+  .case h3 { margin: 0 0 6px; }
+  .case h3 .tag { margin-left: 8px; vertical-align: 2px; }
+  ol.steps { margin: 6px 0 14px; padding-left: 22px; font-size: 13.5px; color: var(--ink-2); }
+  ol.steps li { margin: 3px 0; }
+  ol.steps code { color: var(--ink); }
 </style>
 </head>
 <body>
@@ -154,60 +163,18 @@
   <li><strong>Resolve</strong> — tap (<code>action_id</code> and/or <code>pill_key</code>) → <code>PillData | None</code>. Uuid/<code>action_id</code> → bindings only (never the registry). Bare kind → registry. <code>None</code> → typed text.</li>
 </ul>
 
-<h3>Staged (proposed)</h3>
-<p>Why it exists: a dimension chip must carry retrieve’s exact number. Tool writes the ask, model only places the chip.</p>
-<div class="mm"><pre class="mermaid">
-graph LR
-  A["retrieve tool<br/>anchor wholesale = $18.40"] --> B["stage_pill(mlt_cheaper,<br/>prompt = 'Show more like this under $18.40')<br/>→ staged_id s1"]
-  B --> C["model places<br/>{staged_id: s1, label: 'Cheaper options'}"]
-  C --> D["chip ask still says $18.40<br/>(not 'under $20')"]
-  class A,B neu
-  class C neu
-  class D bind
-  classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
-  classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
-  classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
-  classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
-</pre></div>
-<p class="cap">Not landed. Shipped path is authored <code>emit_follow_up</code> / bound <code>kind:uuid</code>. In code, <code>_staged</code> is only the in-turn bound-chip buffer.</p>
-
 <h3>One pill, creation → tap</h3>
+<p>Three cases, each as two small flows (how the chip is created, what happens on tap) with the concrete values in the steps underneath.</p>
 <div class="legend"><span class="reg">registry · bare <code>kind</code> · nothing stored</span><span class="bind">binding · <code>kind:uuid</code> · stored in <code>last_turn_pills</code></span><span class="miss">miss · <code>None</code> · label as typed text</span></div>
 
-<h4>MLT add · creation</h4>
+<div class="case reg">
+<h3>A · Catalog entry: <code>sold_on_amazon</code></h3>
+<p>A PDP strip chip. The DAG decides which products show it and what it says; the registry decides what a tap asks. Bare key, nothing stored.</p>
+<h4>Creation</h4>
 <div class="mm"><pre class="mermaid">
 graph LR
-  M["Model<br/>direction = add<br/>label = 'look for floral versions'<br/>prompt = 'Show products like this one<br/>with a floral pattern'"] --> E["RA encoder · emit_follow_up<br/>kind = mlt_add · uuid = ab12<br/>pill_key = 'mlt_add:ab12'"]
-  E --> S[("finish writes binding<br/>last_turn_pills['ab12'] =<br/>prompt + MORE_LIKE_THIS + anchor")]
-  E --> F["FE chip<br/>label 'look for floral versions'<br/>action_id = ab12<br/>pill_key = 'mlt_add:ab12'"]
-  class M,E,F neu
-  class S bind
-  classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
-  classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
-  classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
-  classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
-</pre></div>
-<p class="cap">Model writes the ask; encoder mints <code>ab12</code> and the key; <code>finish</code> stores the prompt under the uuid.</p>
-<h4>MLT add · tap</h4>
-<div class="mm"><pre class="mermaid">
-graph LR
-  F["FE sends PillClickAction<br/>action_id = ab12<br/>pill_key = 'mlt_add:ab12'<br/>raw_text = 'look for floral versions'"] --> S[("last_turn_pills['ab12']<br/>hit · never the registry")]
-  S --> P["RA resolve() → PillData<br/>kind mlt_add · intent MORE_LIKE_THIS<br/>prompt = stored prompt<br/>preload = anchor"]
-  P --> M["Model sees<br/>user message = 'Show products like this one<br/>with a floral pattern' + Focus on: anchor<br/>intent already active"]
-  class F,M neu
-  class S,P bind
-  classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
-  classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
-  classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
-  classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
-</pre></div>
-<p class="cap">Uuid taps never read the registry. The stored prompt, not the chip label, becomes the user message.</p>
-
-<h4>Amazon entry · creation</h4>
-<div class="mm"><pre class="mermaid">
-graph LR
-  D["DAG bank row<br/>key = 'sold_on_amazon'<br/>label = 'Is this on Amazon?'"] --> F["FE PDP chip<br/>pill_key = 'sold_on_amazon'<br/>no uuid"]
-  G["RA registry · PillSpec<br/>kind sold_on_amazon<br/>intent PRODUCT_RESEARCH<br/>prompt = 'Is this sold on Amazon?<br/>Compare the price if you find it.'"] -.->|nothing stored per chip| F
+  D["DAG bank"] -->|"① key + label"| F["PDP chip"]
+  G["PillSpec"] -.->|"② nothing per chip"| F
   class D,F neu
   class G reg
   classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
@@ -215,39 +182,119 @@ graph LR
   classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
   classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
 </pre></div>
-<p class="cap">DAG owns the copy on the chip; RA owns the ask on the kind. Bare key, nothing written per chip.</p>
-<h4>Amazon entry · tap</h4>
+<ol class="steps">
+  <li>DAG bank row serves <code>key = sold_on_amazon</code> with its own copy, label <code>Is this on Amazon?</code>; the FE renders that as the PDP chip, <code>pill_key = sold_on_amazon</code>, no uuid.</li>
+  <li>The RA registry already holds the kind: <code>PillSpec(kind=sold_on_amazon, intent=PRODUCT_RESEARCH, prompt="Is this sold on Amazon? Compare the price if you find it.")</code>. Nothing is written per chip or per product.</li>
+</ol>
+<h4>Tap</h4>
 <div class="mm"><pre class="mermaid">
 graph LR
-  F["FE sends MessageAction<br/>pill_key = 'sold_on_amazon'<br/>no uuid"] --> G["registry row<br/>PillSpec sold_on_amazon"]
-  G --> P["RA resolve() → PillData<br/>intent PRODUCT_RESEARCH<br/>prompt = spec.prompt<br/>label = None"]
-  P --> M["Model sees<br/>user message = 'Is this sold on Amazon?<br/>Compare the price if you find it.'<br/>(not the DAG label)"]
-  class F,M neu
-  class G,P reg
+  F["PDP chip tap"] -->|"① pill_key"| R["resolve()"]
+  R -->|"② bare kind"| G["PillSpec"]
+  G -->|"③ PillData"| M["Model"]
+  class F,R,M neu
+  class G reg
   classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
   classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
   classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
   classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
 </pre></div>
-<p class="cap">Bare kind reads the registry row. <code>spec.prompt</code> is the user message; the DAG label is not.</p>
+<ol class="steps">
+  <li>FE sends a <code>MessageAction</code> with <code>pill_key = sold_on_amazon</code> (not a follow-up click).</li>
+  <li><code>resolve()</code> sees no uuid, so it reads the registry row for <code>sold_on_amazon</code>.</li>
+  <li>It returns <code>PillData(intent=PRODUCT_RESEARCH, prompt=spec.prompt, label=None)</code>; the model's next user message is <code>Is this sold on Amazon? Compare the price if you find it.</code> The DAG label is never the user message.</li>
+</ol>
+</div>
 
-<h4>Miss · <code>kind:uuid</code> not in bindings</h4>
+<div class="case bind">
+<h3>B · Bound follow-up: <code>mlt_add:&lt;uuid&gt;</code></h3>
+<p>A chip the model writes after a More Like This turn. The encoder mints the uuid and the key; the exact prompt is stored under that uuid and replayed on tap.</p>
+<h4>Creation</h4>
 <div class="mm"><pre class="mermaid">
 graph LR
-  F["FE sends<br/>pill_key = 'mlt_add:zz99'<br/>(older turn, other tab)"] --> X["RA resolve()<br/>'zz99' not in last_turn_pills<br/>(replaced at last finish)"]
-  X --> N["returns None<br/>no registry fallback"]
-  N --> M["Model sees typed text =<br/>chip label 'look for floral versions'<br/>never mlt_add's registry prompt"]
-  class F,M neu
-  class X,N miss
+  M["Model"] -->|"① add + prompt"| E["emit_follow_up"]
+  E -->|"② ab12"| S[("last_turn_pills")]
+  E -->|"③ chip"| F["Frontend"]
+  class M,E,F neu
+  class S bind
   classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
   classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
   classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
   classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
 </pre></div>
-<p class="cap">A miss never strips to bare kind and never runs that kind’s registry prompt. The 3-day Dynamo store (not read by <code>resolve</code> yet) is what will make these later taps hit.</p>
+<ol class="steps">
+  <li>After retrieve, the model writes a <code>MoreLikeThisPill</code>: direction <code>add</code>, label <code>look for floral versions</code>, prompt <code>Show products like this one with a floral pattern</code>.</li>
+  <li>The encoder maps <code>add → mlt_add</code>, mints <code>uuid = ab12</code>, and binds it; at <code>finish</code>, <code>last_turn_pills["ab12"]</code> stores the prompt, <code>MORE_LIKE_THIS</code>, the anchor token, and <code>pill_key = mlt_add:ab12</code>. Older entries in that map are dropped.</li>
+  <li>The FE receives the chip: label <code>look for floral versions</code>, <code>action_id = ab12</code>, <code>pill_key = mlt_add:ab12</code>.</li>
+</ol>
+<h4>Tap</h4>
+<div class="mm"><pre class="mermaid">
+graph LR
+  F["Chip tap"] -->|"① action_id ab12"| R["resolve()"]
+  R -->|"② lookup"| S[("last_turn_pills")]
+  S -->|"③ PillData"| M["Model"]
+  class F,R,M neu
+  class S bind
+  classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
+  classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
+  classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
+  classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
+</pre></div>
+<ol class="steps">
+  <li>FE sends a <code>PillClickAction</code>: <code>action_id = ab12</code>, <code>pill_key = mlt_add:ab12</code>, <code>raw_text = look for floral versions</code>.</li>
+  <li><code>resolve()</code> sees a uuid, so it reads <strong>bindings only</strong>: <code>last_turn_pills["ab12"]</code>. The registry is not consulted for uuid taps.</li>
+  <li>Hit → <code>PillData(kind=mlt_add, intent=MORE_LIKE_THIS, prompt=&lt;stored&gt;, preload=anchor)</code>. The model's user message is <code>Show products like this one with a floral pattern</code> plus <code>Focus on: &lt;anchor&gt;</code>; intent is already active, so routing is skipped.</li>
+</ol>
+</div>
+
+<div class="case miss">
+<h3>C · Miss: <code>kind:uuid</code> not in bindings</h3>
+<p>What happens when a bound chip is tapped after its binding is gone. Today that is any chip from an earlier turn or another tab.</p>
+<div class="mm"><pre class="mermaid">
+graph LR
+  F["Stale chip tap"] -->|"① zz99"| R["resolve()"]
+  R -->|"② no binding"| N["None"]
+  N -->|"③ typed text"| M["Model"]
+  class F,R,M neu
+  class N miss
+  classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
+  classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
+  classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
+  classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
+</pre></div>
+<ol class="steps">
+  <li>FE sends <code>pill_key = mlt_add:zz99</code> from an older turn or another tab; <code>last_turn_pills</code> was replaced at the last <code>finish</code>.</li>
+  <li><code>resolve()</code> finds no binding for <code>zz99</code> and returns <code>None</code>. It does <strong>not</strong> strip to bare <code>mlt_add</code> and does <strong>not</strong> run that kind's registry prompt.</li>
+  <li>The turn runs as typed text: the user message is the chip label, <code>look for floral versions</code>.</li>
+</ol>
+<p class="cap">The 3-day retailer-scoped Dynamo store (not read by <code>resolve</code> yet) is what will make these later taps hit the same stored prompt and intent instead.</p>
+</div>
+
+<div class="case prop">
+<h3>Staged <span class="tag">proposed · not locked</span></h3>
+<p>A second writer for follow-ups, meant for MLT dimension chips (<code>mlt_cheaper</code>, <code>mlt_ships_faster</code>, …): the tool writes the ask so retrieve’s exact value survives; the model only places the chip.</p>
+<div class="mm"><pre class="mermaid">
+graph LR
+  T["retrieve tool"] -->|"① $18.40"| P["stage_pill()"]
+  P -->|"② staged_id s1"| M["Model"]
+  M -->|"③ places s1"| C["Chip"]
+  class T,P,M neu
+  class C bind
+  classDef reg fill:#cfe3d6,stroke:#1f6f4a,color:#1b1d1a;
+  classDef bind fill:#f0dcc6,stroke:#b5651d,color:#1b1d1a;
+  classDef neu fill:#fffdf8,stroke:#7f8178,color:#1b1d1a;
+  classDef miss fill:#e9e4e4,stroke:#7a2e2e,color:#1b1d1a;
+</pre></div>
+<ol class="steps">
+  <li>Retrieve knows the anchor's wholesale price, <code>$18.40</code>.</li>
+  <li>The tool calls <code>stage_pill(mlt_cheaper, prompt="Show more like this under $18.40", …)</code> and gets <code>staged_id = s1</code>. The number is written once, by code.</li>
+  <li>The model only places <code>{staged_id: s1, label: "Cheaper options"}</code>; the chip's ask still says <code>$18.40</code>, never a paraphrase like “under $20”.</li>
+</ol>
+<p class="cap">Not landed. Shipped path is authored <code>emit_follow_up</code> / bound <code>kind:uuid</code> (case B). Optional later collapse: one staged <code>mlt_add</code> with <code>facts.dimension</code>. In code, <code>_staged</code> is only the in-turn bound-chip buffer.</p>
+</div>
 
 <table>
-  <thead><tr><th>Hop</th><th>MLT add</th><th>Amazon entry</th></tr></thead>
+  <thead><tr><th>Hop</th><th>MLT add (B)</th><th>Amazon entry (A)</th></tr></thead>
   <tbody>
     <tr><td>Author</td><td>Model + encoder</td><td>DAG + catalog spec</td></tr>
     <tr><td>Key</td><td><code>mlt_add:&lt;uuid&gt;</code></td><td><code>sold_on_amazon</code></td></tr>
@@ -259,7 +306,7 @@ graph LR
 </table>
 
 <h3>Why a 3-day bindings store?</h3>
-<p><code>last_turn_pills</code> is wholesale-replaced every <code>finish</code>. A back-button, reopened panel, or other-tab tap on an earlier chip already misses and becomes the <strong>label as typed text</strong>. The 3-day retailer-scoped Dynamo store exists so those later taps still hit the <strong>same stored prompt and intent</strong>. A miss still never strips to bare kind and never runs that kind’s generic registry prompt. TTL only starts to matter once DS reads that store.</p>
+<p><code>last_turn_pills</code> is wholesale-replaced every <code>finish</code>. A back-button, reopened panel, or other-tab tap on an earlier chip already misses and becomes the <strong>label as typed text</strong> (case C). The 3-day retailer-scoped Dynamo store exists so those later taps still hit the <strong>same stored prompt and intent</strong>. A miss still never strips to bare kind and never runs that kind’s generic registry prompt. TTL only starts to matter once DS reads that store.</p>
 
 <h2><span class="n">01</span> Why</h2>
 <p>Pills are how most retailers start and continue an RA conversation. Today a tap is handled three different ways: entry pills run as typed text (their key only picks a guidance string), compare-similar is an intent the frontend sends, and generated follow-ups look up a map that lasts one turn. Most behavior lives in prompts. A registry fixes four things:</p>
