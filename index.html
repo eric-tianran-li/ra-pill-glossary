@@ -136,7 +136,7 @@
 <p class="kicker">Compass · Retailer Assistant · Path §3</p>
 <h1>Pill registry and resolver</h1>
 <p class="sub">Companion to Luan’s <a href="https://app.notion.com/p/faire/RA-Pill-Identity-Infra-Initial-Followup-3e92efb5c25a80cf99b9ddad8e448f8c">RA Pill Identity Infra</a> (Path §3). Replaces the <code>kind → IntentType(kind)</code> stub. Routing: <a href="https://app.notion.com/p/faire/RA-Intent-Routing-Infra-3e92efb5c25a80218994d11dab033cdd">RA Intent Routing Infra</a>.</p>
-<p class="sketch">v21 draft · terms first, then the plan · open items are marked, not decided</p>
+<p class="sketch">v22 · plan · open items are marked, not decided</p>
 
 <div class="call">
   <strong>TL;DR</strong>
@@ -172,12 +172,10 @@
       <li>Compare availability on the server — Later, below.</li>
     </ul></div>
   <div class="open"><h3>Open · named, not decided</h3>
+    <p>Initial ideas, open to other suggestions — not a closed list.</p>
     <ul class="tight">
-      <li><strong>Staged pills.</strong> A second writer for follow-ups where a tool, not the model, writes the question (so a price such as <code>$18.40</code> is carried, not re-estimated). Not landed; may collapse onto <code>mlt_add</code>.</li>
-      <li><strong>TTL length</strong> for per-pill records: 3 days in the BE PR, 1 day acceptable; and whether taps after the next turn should resolve at all.</li>
+      <li><strong>Staged pills.</strong> A second writer for follow-ups where a tool, not the model, writes the question (so a price such as <code>$18.40</code> is carried, not re-estimated).</li>
       <li><strong>Preload shape</strong>: a fixed <code>ContextPreload</code> / <code>ToolPreload</code> pair, or a small per-kind pre-execution config run before the model.</li>
-      <li><strong>First preload user</strong>: compare candidates, MLT retrieve, Amazon web search, or none until COM-1214.</li>
-      <li>Manifest test scope, pinning a fourth slot, emission log event — see Still open.</li>
     </ul></div>
 </div>
 
@@ -217,7 +215,7 @@
   <dt>Catalog pill</dt><dd>A kind whose registry row has a fixed prompt and that the DAG is allowed to serve as an initial pill. The DAG chooses which products show it and writes the button label; RA’s row owns the prompt. All initial pills are catalog pills. A catalog kind can also be offered in chat (compare).</dd>
   <dt>Preset follow-up</dt><dd>A follow-up with a fixed label and prompt on its row. The model only chooses to offer it. Key is the bare kind; nothing is stored per pill. Today: <code>compare_similar_products</code>.</dd>
   <dt>Bound follow-up</dt><dd>A follow-up whose label and prompt the model writes for this turn, using a registered kind (<code>mlt_add</code>, <code>catalog_explore</code>, <code>ask_&lt;intent&gt;</code>). The server mints the uuid, builds the key <code>kind:uuid</code>, and stores the binding. The model never types a kind string; it picks from a schema built from the registry.</dd>
-  <dt>Staged follow-up <span class="tag">open</span></dt><dd>Proposed: a tool writes the prompt from data it has (the anchor’s price), returns a staged id, and the model only places <code>{staged_id, label}</code>. Not landed; see Scope.</dd>
+  <dt>Staged follow-up <span class="tag">open</span></dt><dd>Proposed: a tool writes the prompt from data it has (the anchor’s price), returns a staged id, and the model only places <code>{staged_id, label}</code>. See Scope.</dd>
 </dl>
 
 <h2><span class="n">03</span> How a tap works</h2>
@@ -364,7 +362,7 @@ graph LR
   <thead><tr><th></th><th>Today</th><th>After</th></tr></thead>
   <tbody>
     <tr><td>Where a binding lives</td><td><code>AppState.last_turn_pills</code>: a map keyed by <code>action_id</code> on the session’s state object, persisted with the rest of session state between turns. Not its own table.</td><td>A BE Dynamo table, <code>compass_pdp_chat_pill_bindings</code>: partition <code>retailer_token</code>, sort <code>pill_key</code>, value = <code>PillData</code> JSON, TTL attribute. Reached through BE web actions (put / lookup), like every other store RA uses.</td></tr>
-    <tr><td>Lifetime</td><td>Until the next <code>finish</code>: the whole map is replaced each turn.</td><td>TTL from write time (3 days in the PR; length open). Expired rows read as misses.</td></tr>
+    <tr><td>Lifetime</td><td>Until the next <code>finish</code>: the whole map is replaced each turn.</td><td>TTL from write time, 1 day (locked). Expired rows read as misses.</td></tr>
     <tr><td>Scope</td><td>One session.</td><td>One retailer, any session or tab.</td></tr>
     <tr><td>Written by</td><td>The encoder, at emission.</td><td>The encoder, at emission (same place, one extra call).</td></tr>
     <tr><td>Read by</td><td><code>resolve()</code> for <code>kind:uuid</code> keys.</td><td><code>resolve()</code> for <code>kind:uuid</code> keys.</td></tr>
@@ -388,7 +386,7 @@ graph LR
   <li>Until the frontend sends <code>pillKey</code> on every tap, <code>last_turn_pills</code> stays keyed by <code>action_id</code>; <code>resolve()</code> accepts either.</li>
   <li>Status: BE proto field is in a draft PR; the frontend one-shape PR follows the proto and DS deploy. This is hub Path §4, then §5.</li>
 </ul>
-<p class="cap">On TTL: the reason for a table at all is a retailer who comes back a day later and taps a pill still on screen. 3 days is a first value, 1 day is fine. The counter-view (a binding past the next turn is unnecessary state) is recorded under Still open; a TTL-bounded table does not grow without bound either way.</p>
+<p class="cap">On TTL: the reason for a table at all is a retailer who comes back and taps a pill still on screen. Binding TTL is 1 day from write. Expired rows are misses. A TTL-bounded table does not grow without bound.</p>
 
 <h2><span class="n">05</span> Ownership: DAG vs RA</h2>
 <p>Initial pills are produced by an Airflow DAG (<code>compass_pdp_chat_prompt_pills</code>) into a BE-served table; follow-up pills are produced by RA code at the end of a turn. They share no code on purpose.</p>
@@ -401,7 +399,7 @@ graph LR
     <tr><td>Contract</td><td colspan="2">The <strong>manifest</strong>: a checked-in list of catalog kinds (kind → intent, eligibility, fixed label if any). An RA test keeps it equal to the registry. An Airflow test fails if the DAG serves a key not in it, gates it differently, or serves a different label for a kind whose label is fixed.</td></tr>
   </tbody>
 </table>
-<p><strong>Why not import RA code from the DAG.</strong> The DAG is a different repo surface with a different deploy cadence and different contributors; importing the RA package would couple a daily SQL job to an app release and put product-copy experiments behind RA code review. The manifest gives the same guarantee (every served key is a registered kind) without the coupling. BE stays a proxy: it serves the DAG’s rows and forwards taps; it does not interpret keys.</p>
+<p><strong>Why DAG and RA do not share code.</strong> Consistency is already a test, not a shared import: an Airflow test fails if the DAG serves a key that is not in the RA registry, and an RA test keeps the manifest equal to the registry. Importing from the RA app is mechanically possible, but the DAG is wired to a different flare app (<code>PdpOverviewAppV2Executor</code> / pdpoverviewapp), which makes that import odd. They also have separate deploy timings, so an import would be misleading: a registry removal still cannot land before the DAG stops serving that kind, or taps miss. The DAG is a different repo surface with a different cadence and different contributors besides; importing the RA package would couple a daily SQL job to an app release and put product-copy experiments behind RA code review. The manifest is the contract without that coupling. BE stays a proxy: it serves the DAG’s rows and forwards taps; it does not interpret keys.</p>
 
 <h2><span class="n">06</span> Decisions locked</h2>
 <ul class="tight">
@@ -416,12 +414,12 @@ graph LR
   <li>Generic model-written pills use the reserved <code>ask</code> family; bare <code>:uuid</code> is not minted.</li>
   <li>Amazon stays on <code>product_research</code>; no Amazon intent.</li>
   <li>Labels live on both <code>PillSpec</code> (fixed English copy) and <code>PillData</code> (what was sent).</li>
-  <li>Bindings move to a retailer-scoped BE table with a TTL; the encoder writes them; <code>resolve</code> rejects a retailer mismatch.</li>
+  <li>Bindings move to a retailer-scoped BE table with a 1-day TTL; the encoder writes them; <code>resolve</code> rejects a retailer mismatch.</li>
   <li>Exactly three follow-up slots. Manifest + Airflow test for DAG keys.</li>
 </ul>
 
 <h2 style="border-top-style:dashed"><span class="n">—</span> Still open</h2>
-<p>Scope lists the four product-level opens (staged pills, TTL length and whether later taps should resolve, preload shape, first preload user). The rest:</p>
+<p>These are initial ideas, open to other suggestions. Scope lists the product-level opens (staged pills, preload shape). The rest:</p>
 <ol class="asks">
   <li><strong>Manifest test scope.</strong> Category pills first, or every catalog kind?</li>
   <li><strong>Pinning.</strong> A pinned pill takes one of the three slots; a fourth would change the schema and the frontend layout.</li>
