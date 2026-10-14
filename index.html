@@ -136,7 +136,7 @@
 <p class="kicker">Compass · Retailer Assistant · Path §3</p>
 <h1>Pill registry and resolver</h1>
 <p class="sub">Companion to Luan’s <a href="https://app.notion.com/p/faire/RA-Pill-Identity-Infra-Initial-Followup-3e92efb5c25a80cf99b9ddad8e448f8c">RA Pill Identity Infra</a> (Path §3). Replaces the <code>kind → IntentType(kind)</code> stub. Routing: <a href="https://app.notion.com/p/faire/RA-Intent-Routing-Infra-3e92efb5c25a80218994d11dab033cdd">RA Intent Routing Infra</a>.</p>
-<p class="sketch">v22 · plan · open items are marked, not decided</p>
+<p class="sketch">v23 · plan · open items are marked, not decided</p>
 
 <div class="call">
   <strong>TL;DR</strong>
@@ -175,7 +175,7 @@
     <p>Initial ideas, open to other suggestions — not a closed list.</p>
     <ul class="tight">
       <li><strong>Staged pills.</strong> A second writer for follow-ups where a tool, not the model, writes the question (so a price such as <code>$18.40</code> is carried, not re-estimated).</li>
-      <li><strong>Preload shape</strong>: a fixed <code>ContextPreload</code> / <code>ToolPreload</code> pair, or a small per-kind pre-execution config run before the model.</li>
+      <li><strong>Preload shape</strong>: a fixed <code>ContextPreload</code> / <code>ToolPreload</code> pair, or Cedo’s proposal (<a href="https://postplan.qhsu.workers.dev/eric-tianran-li/ra-pill-registry-resolver/pill-registry-resolver.html?thread=0c206e1e-b199-47f6-a751-eb93161f4a4e&review=1">review thread</a>): “allow for greater flexibility here, almost like a DAG config to be executed on click, prior to LLM call” — a small per-kind pre-execution config, with <a href="https://postplan.qhsu.workers.dev/eric-tianran-li/ra-pill-registry-resolver/pill-registry-resolver.html?thread=a2a493c5-6a9d-457a-a3e7-1d681dfc24a6&review=1">“pre-execution” as the term</a> because computation is more general than loading data. Background on the latency idea is in <a href="https://faire.enterprise.slack.com/archives/C0BA9KQQUJK/p1790624363104789">#pod-compass-team</a>.</li>
     </ul></div>
 </div>
 
@@ -207,7 +207,7 @@
   <dt><code>PillData</code></dt><dd>What a tap resolves to: <code>kind</code>, <code>intent</code>, <code>prompt</code>, <code>label</code> that was sent, <code>preload</code>, analytics. The rest of the pipeline sees only this type.</dd>
   <dt>Binding</dt><dd>One stored <code>PillData</code> for one offered <code>kind:uuid</code> pill, written by the server when the pill is emitted. Today the map <code>last_turn_pills</code> on session state; next, a BE table (the <strong>bindings store</strong>). Retailer-scoped.</dd>
   <dt>Miss</dt><dd>A <code>kind:uuid</code> tap with no binding (expired, replaced, or another retailer). <code>resolve</code> returns <code>None</code>; the label runs as typed text. It never falls back to the bare kind or to that kind’s fixed prompt.</dd>
-  <dt>Preload (pre-execution)</dt><dd>Work a pill declares to run before the model: entities and typed facts to put in context (<code>ContextPreload</code>), or a registered tool to run (<code>ToolPreload</code>, COM-1214). The field is named <code>preload</code> in code; its shape is open.</dd>
+  <dt>Preload (pre-execution)</dt><dd>Work a pill declares to run before the model: entities and typed facts to put in context (<code>ContextPreload</code>), or a registered tool to run (<code>ToolPreload</code>, COM-1214). The field is named <code>preload</code> in code; its shape is open (Scope → Open).</dd>
 </dl>
 
 <h3>Who writes the ask</h3>
@@ -386,7 +386,7 @@ graph LR
   <li>Until the frontend sends <code>pillKey</code> on every tap, <code>last_turn_pills</code> stays keyed by <code>action_id</code>; <code>resolve()</code> accepts either.</li>
   <li>Status: BE proto field is in a draft PR; the frontend one-shape PR follows the proto and DS deploy. This is hub Path §4, then §5.</li>
 </ul>
-<p class="cap">On TTL: the reason for a table at all is a retailer who comes back and taps a pill still on screen. Binding TTL is 1 day from write. Expired rows are misses. A TTL-bounded table does not grow without bound.</p>
+<p class="cap">On TTL: the reason for a table at all is a retailer who comes back and taps a pill still on screen (reload, other tab, reopened panel). Binding TTL is 1 day from write; expired rows are misses. Dynamo deletes expired rows and the per-turn map goes away at step 4, so nothing grows without bound.</p>
 
 <h2><span class="n">05</span> Ownership: DAG vs RA</h2>
 <p>Initial pills are produced by an Airflow DAG (<code>compass_pdp_chat_prompt_pills</code>) into a BE-served table; follow-up pills are produced by RA code at the end of a turn. They share no code on purpose.</p>
@@ -404,12 +404,12 @@ graph LR
 <h2><span class="n">06</span> Decisions locked</h2>
 <ul class="tight">
   <li>One registry, <code>REGISTRIES.pills</code>, in RA Python. Kinds are cheap; intents are jobs. Many kinds → one intent, or none.</li>
-  <li>A pill carries only its prompt. How to answer lives in the intent’s playbook.</li>
+  <li>On the wire a pill is label + <code>pillKey</code>; resolved on the server it carries only its prompt (plus intent and preload). How to answer lives in the intent’s playbook, not on the pill.</li>
   <li><code>resolve(pill_key, retailer) → PillData | None</code>; one path for initial and follow-up taps.</li>
   <li>Intent is optional on a pill (<code>ask</code>, <code>intent=None</code>).</li>
   <li>The tap prompt is the next user message. The label is never the user message on a hit.</li>
   <li>Miss on <code>kind:uuid</code> → label as typed text; never strip to bare kind, never the kind’s fixed prompt.</li>
-  <li>One opaque <code>pillKey</code> string on the wire (hub contract), not separate kind and uuid fields; the warehouse derives <code>pill_kind</code>.</li>
+  <li>One opaque <code>pillKey</code> string on the wire (hub contract), not separate kind and uuid fields: the frontend never branches on kind, one field travels through FE, BE and analytics, and the warehouse derives <code>pill_kind</code> from the part before <code>:</code>.</li>
   <li>Follow-ups registered standalone as <code>FollowUpPill</code>, not as intent hooks. The model fills instance fields only; it cannot invent a kind.</li>
   <li>Generic model-written pills use the reserved <code>ask</code> family; bare <code>:uuid</code> is not minted.</li>
   <li>Amazon stays on <code>product_research</code>; no Amazon intent.</li>
