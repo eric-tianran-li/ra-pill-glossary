@@ -136,16 +136,16 @@
 <p class="kicker">Compass · Retailer Assistant · Path §3</p>
 <h1>Pill registry and resolver</h1>
 <p class="sub">Companion to Luan’s <a href="https://app.notion.com/p/faire/RA-Pill-Identity-Infra-Initial-Followup-3e92efb5c25a80cf99b9ddad8e448f8c">RA Pill Identity Infra</a> (Path §3). Replaces the <code>kind → IntentType(kind)</code> stub. Routing: <a href="https://app.notion.com/p/faire/RA-Intent-Routing-Infra-3e92efb5c25a80218994d11dab033cdd">RA Intent Routing Infra</a>.</p>
-<p class="sketch">v23 · plan · open items are marked, not decided</p>
+<p class="sketch">v24 · plan · open items are marked, not decided</p>
 
 <div class="call">
   <strong>TL;DR</strong>
   <ul class="tight tldr">
-    <li>A <strong>pill</strong> is a suggested question the retailer can tap instead of typing. Every pill carries one string, its <strong>pill key</strong>, and that key is the only thing a tap sends back.</li>
+    <li>A <strong>pill</strong> is a suggested question the retailer can tap instead of typing. Every pill carries one string, its <strong>pill key</strong>. A tap sends that key back, and the label too so a miss can fall back to typed text.</li>
     <li>One Python <strong>registry</strong> in RA lists every pill <strong>kind</strong> (a frozen name like <code>sold_on_amazon</code>) with the intent it opens and the question it asks.</li>
     <li>Every tap goes through one function, <code>resolve(pill_key)</code>: a bare kind reads the registry; a <code>kind:uuid</code> reads a per-pill record written when the pill was offered; anything else is treated as typed text.</li>
-    <li>Follow-up pills are written by the model but may only use registered kinds; the server mints the uuid and stores the exact question, so the tap replays what was offered.</li>
-    <li>Per-pill records move from a per-turn field in session state to a BE table with a TTL. No data migration: nothing is copied; the new table is simply written from the first deploy onward.</li>
+    <li>Follow-up pills are written by the model but may only use registered kinds (custom questions use the reserved <code>ask</code> family, not a kindless <code>:uuid</code>); the server mints the uuid and stores the exact question, so the tap replays what was offered.</li>
+    <li>Per-pill records move from a per-turn field in session state to a BE table with a TTL. No data migration: nothing is copied; the new table is simply written from the first deploy onward. A pill from a months-old session whose binding is gone is a miss: the label runs as typed text.</li>
   </ul>
 </div>
 
@@ -195,25 +195,25 @@
 <h3>Registry</h3>
 <dl class="terms">
   <dt>Registry (<code>REGISTRIES.pills</code>)</dt><dd>A Python registry in the RA app, like <code>REGISTRIES.tools</code>. Engineers add rows in code under <code>core/pills/</code>; follow-up rows are registered from the intent folder with <code>REGISTRIES.add_follow_up(...)</code>. It is not a database table. A duplicate kind fails at import.</dd>
-  <dt><code>PillSpec</code></dt><dd>One registry row: <code>kind</code>, <code>intent</code>, optional fixed <code>prompt</code>, optional fixed English <code>label</code>, eligibility for initial pills, preload. Given a bare kind, this is all a tap needs.</dd>
+  <dt><code>PillSpec</code></dt><dd>One registry row: <code>kind</code>, <code>intent</code>, optional fixed <code>prompt</code>, optional fixed English <code>label</code>, eligibility for initial pills (checked only when offering, never in <code>resolve</code> — if we offered it, we honour it), preload. Given a bare kind, this is all a tap needs.</dd>
   <dt><code>FollowUpPill</code></dt><dd>A <code>PillSpec</code> plus what the model needs to offer it: <code>docs</code> (when to use it), an optional per-pill <code>check</code>, and an optional pydantic model for the fields the model fills.</dd>
   <dt>Manifest</dt><dd>A checked-in list of the kinds the DAG may serve as initial pills (kind → intent, eligibility, fixed label if any). A test keeps it equal to the registry; an Airflow test fails if the DAG serves a key that is not in it. It is the contract between two repos that do not import each other.</dd>
 </dl>
 
 <h3>Per tap</h3>
 <dl class="terms">
-  <dt>Tap</dt><dd>The retailer presses a pill. The frontend sends a <code>PillClickAction</code> carrying the pill key (and, during the transition, the older <code>action_id</code>).</dd>
+  <dt>Tap</dt><dd>The retailer presses a pill. The frontend sends a <code>PillClickAction</code> carrying the pill key and the label (so a miss can fall back to typed text).</dd>
   <dt><code>resolve(pill_key, retailer)</code></dt><dd>The one function every tap goes through. It returns a <code>PillData</code> or <code>None</code>. <code>kind:uuid</code> → the per-pill record, never the registry. Bare <code>kind</code> → the registry row. <code>None</code> → the label is sent as if the retailer typed it.</dd>
-  <dt><code>PillData</code></dt><dd>What a tap resolves to: <code>kind</code>, <code>intent</code>, <code>prompt</code>, <code>label</code> that was sent, <code>preload</code>, analytics. The rest of the pipeline sees only this type.</dd>
-  <dt>Binding</dt><dd>One stored <code>PillData</code> for one offered <code>kind:uuid</code> pill, written by the server when the pill is emitted. Today the map <code>last_turn_pills</code> on session state; next, a BE table (the <strong>bindings store</strong>). Retailer-scoped.</dd>
-  <dt>Miss</dt><dd>A <code>kind:uuid</code> tap with no binding (expired, replaced, or another retailer). <code>resolve</code> returns <code>None</code>; the label runs as typed text. It never falls back to the bare kind or to that kind’s fixed prompt.</dd>
+  <dt><code>PillData</code></dt><dd>What a tap resolves to: <code>kind</code>, <code>intent</code>, <code>prompt</code>, <code>label</code> that was sent, <code>preload</code>, and <code>analytics</code> (extra log dims such as slot, surface, experiment — not a second copy of kind/intent/label). The rest of the pipeline sees only this type.</dd>
+  <dt>Binding</dt><dd>One stored <code>PillData</code> for one offered <code>kind:uuid</code> pill, written by the server when the pill is emitted. Today the map <code>last_turn_pills</code> on session state; next, a BE table (the <strong>bindings store</strong>). The current PR partitions on <code>retailer_token</code>; grain (retailer vs session vs input) is open.</dd>
+  <dt>Miss</dt><dd>A <code>kind:uuid</code> tap with no binding (TTL expired, replaced, another retailer, or a months-old session whose map is gone). <code>resolve</code> returns <code>None</code>; the label runs as typed text — that is the last fallback. It never falls back to the bare kind or to that kind’s fixed prompt.</dd>
   <dt>Preload (pre-execution)</dt><dd>Work a pill declares to run before the model: entities and typed facts to put in context (<code>ContextPreload</code>), or a registered tool to run (<code>ToolPreload</code>, COM-1214). The field is named <code>preload</code> in code; its shape is open (Scope → Open).</dd>
 </dl>
 
 <h3>Who writes the ask</h3>
 <dl class="terms">
   <dt>Catalog pill</dt><dd>A kind whose registry row has a fixed prompt and that the DAG is allowed to serve as an initial pill. The DAG chooses which products show it and writes the button label; RA’s row owns the prompt. All initial pills are catalog pills. A catalog kind can also be offered in chat (compare).</dd>
-  <dt>Preset follow-up</dt><dd>A follow-up with a fixed label and prompt on its row. The model only chooses to offer it. Key is the bare kind; nothing is stored per pill. Today: <code>compare_similar_products</code>.</dd>
+  <dt>Preset follow-up</dt><dd>A follow-up with a fixed label and prompt on its row. The model only chooses to offer it. Key is the bare kind; nothing is stored per pill. Today: <code>compare_similar_products</code>. Overlap with catalog / DAG-picked initial pills is a later concern.</dd>
   <dt>Bound follow-up</dt><dd>A follow-up whose label and prompt the model writes for this turn, using a registered kind (<code>mlt_add</code>, <code>catalog_explore</code>, <code>ask_&lt;intent&gt;</code>). The server mints the uuid, builds the key <code>kind:uuid</code>, and stores the binding. The model never types a kind string; it picks from a schema built from the registry.</dd>
   <dt>Staged follow-up <span class="tag">open</span></dt><dd>Proposed: a tool writes the prompt from data it has (the anchor’s price), returns a staged id, and the model only places <code>{staged_id, label}</code>. See Scope.</dd>
 </dl>
@@ -226,7 +226,7 @@ class PillSpec:          # one registry row
     intent: IntentType | None              # None = base assistant
     prompt: str | None = None              # fixed ask, for taps with no instance
     label: str | None = None               # fixed English copy, if this kind has one
-    eligibility: Eligibility | None = None # catalog only, e.g. C3 list
+    eligibility: Eligibility | None = None # offer-time only; resolve never rechecks
     preload: tuple[PreloadSpec, ...] = ()
 
 @dataclass(frozen=True)
@@ -236,7 +236,7 @@ class PillData:          # what a tap resolves to
     prompt: str | None
     label: str | None                      # the copy that was sent; never shown to the model
     preload: tuple[Preload, ...]           # ContextPreload | ToolPreload
-    analytics: Mapping[str, str]           # logged only, never read to answer
+    analytics: Mapping[str, str]           # extra log dims (slot, surface, experiment); never read to answer
 
 def resolve(pill_key, retailer) -> PillData | None
 </pre>
@@ -361,7 +361,7 @@ graph LR
 <table>
   <thead><tr><th></th><th>Today</th><th>After</th></tr></thead>
   <tbody>
-    <tr><td>Where a binding lives</td><td><code>AppState.last_turn_pills</code>: a map keyed by <code>action_id</code> on the session’s state object, persisted with the rest of session state between turns. Not its own table.</td><td>A BE Dynamo table, <code>compass_pdp_chat_pill_bindings</code>: partition <code>retailer_token</code>, sort <code>pill_key</code>, value = <code>PillData</code> JSON, TTL attribute. Reached through BE web actions (put / lookup), like every other store RA uses.</td></tr>
+    <tr><td>Where a binding lives</td><td><code>AppState.last_turn_pills</code>: a map keyed by <code>action_id</code> on the session’s state object, persisted with the rest of session state between turns. Not its own table.</td><td>A BE Dynamo table, <code>compass_pdp_chat_pill_bindings</code>: partition <code>retailer_token</code> in the current PR (grain open: retailer vs <code>flare_session_token</code> vs <code>flare_input_token</code>, so we do not contaminate across sessions and can invalidate previous pills in one session), sort <code>pill_key</code>, value = <code>PillData</code> JSON, TTL attribute. Reached through BE web actions (put / lookup), like every other store RA uses.</td></tr>
     <tr><td>Lifetime</td><td>Until the next <code>finish</code>: the whole map is replaced each turn.</td><td>TTL from write time, 1 day (locked). Expired rows read as misses.</td></tr>
     <tr><td>Scope</td><td>One session.</td><td>One retailer, any session or tab.</td></tr>
     <tr><td>Written by</td><td>The encoder, at emission.</td><td>The encoder, at emission (same place, one extra call).</td></tr>
@@ -375,16 +375,15 @@ graph LR
   <li><strong>Table + actions land (BE).</strong> Nothing reads them. Table provisioned with TTL enabled.</li>
   <li><strong>Encoder writes both.</strong> Each emitted bound pill is put in the table and in <code>last_turn_pills</code>.</li>
   <li><strong><code>resolve()</code> reads the table first</strong>, then <code>last_turn_pills</code>. A hit in either is the same <code>PillData</code>.</li>
-  <li><strong>Stop writing <code>last_turn_pills</code></strong> once the frontend sends <code>pill_key</code> on every tap (Path §5). The map and <code>PillBinding</code> are deleted then.</li>
+  <li><strong>Stop writing <code>last_turn_pills</code></strong> once the frontend sends <code>pill_key</code> on every tap. The map and <code>PillBinding</code> are deleted then. We do not keep the session-state fallback forever.</li>
 </ol>
-<p><strong>No data migration.</strong> A binding is only useful for a pill that is still on someone’s screen, and today those live at most one turn. There is nothing worth copying from the old map into the table; the table is simply written from step 2 onward and the old map ages out on its own. There is no “v2” of the old storage in between.</p>
+<p><strong>No data migration.</strong> A binding is only useful for a pill that is still on someone’s screen, and today those live at most one turn. There is nothing worth copying from the old map into the table; the table is simply written from step 2 onward and the old map ages out on its own. There is no “v2” of the old storage in between. Risk: a retailer can reopen a session from months ago and tap a pill whose binding is gone. Mitigation: that tap is a miss, and the label runs as typed text — we do not keep the old map as a permanent fallback.</p>
 <p><strong>Two read paths for a while, one write shape.</strong> Between steps 3 and 4, <code>resolve()</code> consults two stores. That is the only place the duality shows; callers see one <code>PillData</code>.</p>
 
 <h3>Wire transition</h3>
 <ul class="tight">
-  <li><code>PillClickAction.pillKey</code> is the permanent field. <code>PillClickAction.actionId</code> and <code>MessageAction.pillKey</code> are transitional and accepted until old clients are gone.</li>
-  <li>Until the frontend sends <code>pillKey</code> on every tap, <code>last_turn_pills</code> stays keyed by <code>action_id</code>; <code>resolve()</code> accepts either.</li>
-  <li>Status: BE proto field is in a draft PR; the frontend one-shape PR follows the proto and DS deploy. This is hub Path §4, then §5.</li>
+  <li>On main today, <code>PillClickAction</code> still has only <code>actionId</code>. Permanent field is <code>pillKey</code> (<a href="https://github.com/Faire/backend/pull/308837">backend#308837</a>, draft). One-shape frontend: <a href="https://github.com/Faire/frontend/pull/89712">frontend#89712</a>, draft. Those land as first and last in the merge order (§07); until the frontend ships, <code>resolve()</code> accepts either.</li>
+  <li>A tap also sends the label, so a miss (expired, old session, kindless) can fall back to typed text.</li>
 </ul>
 <p class="cap">On TTL: the reason for a table at all is a retailer who comes back and taps a pill still on screen (reload, other tab, reopened panel). Binding TTL is 1 day from write; expired rows are misses. Dynamo deletes expired rows and the per-turn map goes away at step 4, so nothing grows without bound.</p>
 
@@ -399,7 +398,7 @@ graph LR
     <tr><td>Contract</td><td colspan="2">The <strong>manifest</strong>: a checked-in list of catalog kinds (kind → intent, eligibility, fixed label if any). An RA test keeps it equal to the registry. An Airflow test fails if the DAG serves a key not in it, gates it differently, or serves a different label for a kind whose label is fixed.</td></tr>
   </tbody>
 </table>
-<p><strong>Why DAG and RA do not share code.</strong> Consistency is already a test, not a shared import: an Airflow test fails if the DAG serves a key that is not in the RA registry, and an RA test keeps the manifest equal to the registry. Importing from the RA app is mechanically possible, but the DAG is wired to a different flare app (<code>PdpOverviewAppV2Executor</code> / pdpoverviewapp), which makes that import odd. They also have separate deploy timings, so an import would be misleading: a registry removal still cannot land before the DAG stops serving that kind, or taps miss. The DAG is a different repo surface with a different cadence and different contributors besides; importing the RA package would couple a daily SQL job to an app release and put product-copy experiments behind RA code review. The manifest is the contract without that coupling. BE stays a proxy: it serves the DAG’s rows and forwards taps; it does not interpret keys.</p>
+<p><strong>Why DAG and RA do not share code.</strong> Consistency is already a test, not a shared import: an Airflow test fails if the DAG serves a key that is not in the RA registry, and an RA test keeps the manifest equal to the registry. Importing from the RA app is mechanically possible, but the DAG is wired to a different flare app (<code>PdpOverviewAppV2Executor</code> / pdpoverviewapp), which makes that import odd. They also have separate deploy timings, so an import would be misleading: a registry removal still cannot land before the DAG stops serving that kind, or taps miss. The DAG is a different repo surface with a different cadence and different contributors besides; importing the RA package would couple a daily SQL job to an app release and put product-copy experiments behind RA code review. The manifest is the contract without that coupling. This plan does not preclude sharing more later. BE stays a proxy: it serves the DAG’s rows and forwards taps; it does not interpret keys.</p>
 
 <h2><span class="n">06</span> Decisions locked</h2>
 <ul class="tight">
@@ -407,14 +406,14 @@ graph LR
   <li>On the wire a pill is label + <code>pillKey</code>; resolved on the server it carries only its prompt (plus intent and preload). How to answer lives in the intent’s playbook, not on the pill.</li>
   <li><code>resolve(pill_key, retailer) → PillData | None</code>; one path for initial and follow-up taps.</li>
   <li>Intent is optional on a pill (<code>ask</code>, <code>intent=None</code>).</li>
-  <li>The tap prompt is the next user message. The label is never the user message on a hit.</li>
+  <li>On a hit, the tap prompt is the next user message and the label is not. On a miss, the label is the last fallback and runs as typed text.</li>
   <li>Miss on <code>kind:uuid</code> → label as typed text; never strip to bare kind, never the kind’s fixed prompt.</li>
   <li>One opaque <code>pillKey</code> string on the wire (hub contract), not separate kind and uuid fields: the frontend never branches on kind, one field travels through FE, BE and analytics, and the warehouse derives <code>pill_kind</code> from the part before <code>:</code>.</li>
   <li>Follow-ups registered standalone as <code>FollowUpPill</code>, not as intent hooks. The model fills instance fields only; it cannot invent a kind.</li>
   <li>Generic model-written pills use the reserved <code>ask</code> family; bare <code>:uuid</code> is not minted.</li>
   <li>Amazon stays on <code>product_research</code>; no Amazon intent.</li>
   <li>Labels live on both <code>PillSpec</code> (fixed English copy) and <code>PillData</code> (what was sent).</li>
-  <li>Bindings move to a retailer-scoped BE table with a 1-day TTL; the encoder writes them; <code>resolve</code> rejects a retailer mismatch.</li>
+  <li>Bindings move to a BE table with a 1-day TTL; the encoder writes them; <code>resolve</code> rejects a retailer mismatch. Partition grain (retailer vs session vs input) is open. Eligibility is not rechecked on resolve.</li>
   <li>Exactly three follow-up slots. Manifest + Airflow test for DAG keys.</li>
 </ul>
 
@@ -422,27 +421,31 @@ graph LR
 <p>These are initial ideas, open to other suggestions. Scope lists the product-level opens (staged pills, preload shape). The rest:</p>
 <ol class="asks">
   <li><strong>Manifest test scope.</strong> Category pills first, or every catalog kind?</li>
-  <li><strong>Pinning.</strong> A pinned pill takes one of the three slots; a fourth would change the schema and the frontend layout.</li>
-  <li><strong>Emission log.</strong> One server event per emitted pill (<code>{pill_key, kind, label, analytics}</code>); CTR by kind does not exist without it.</li>
-  <li><strong>Custom fields on a follow-up.</strong> A <code>FollowUpPill</code> may supply its own pydantic model when a pill needs structured input. Nothing needs it today.</li>
+  <li><strong>Pinning.</strong> Initial pills: out of scope here — already done on the fast-track executor. Follow-up pinning: later, and only if we unify some initial vs follow-up logic.</li>
+  <li><strong>Emission log.</strong> One server event per emitted pill (<code>{pill_key, kind, label, analytics}</code>); CTR by kind does not exist without it. Aligned.</li>
+  <li><strong>Custom fields on a follow-up.</strong> Not now; keep it simple. A <code>FollowUpPill</code> may supply its own pydantic model later if a pill needs structured input.</li>
+  <li><strong>Bindings partition.</strong> Current PR is <code>retailer_token</code>. Considering <code>flare_session_token</code> or <code>flare_input_token</code> so we do not contaminate across sessions and can invalidate previous pills on the same session.</li>
+  <li><strong>Catalog vs preset overlap.</strong> Later: whether DAG-picked initial pills and preset follow-ups should share more than a kind.</li>
 </ol>
+<p><strong>Doors kept open</strong> (<a href="https://faire.enterprise.slack.com/archives/C0BA9KQQUJK/p1792002580119099">Cedo, #pod-compass-team</a>): the design should still allow different pills per surface (PDP / brand / search), per category, and per retailer or group. Not P0 today; do not close those doors.</p>
 
 <h3>Later: server-side compare availability</h3>
 <p>Compare should only show when there are products to compare. Today the frontend checks (<code>isCompareAvailable</code>, COM-843). Moving that into compare’s <code>check</code> needs a cheap candidate check at the end of each turn (which can double as compare’s preload), measurement of pick rate before and after, then removal of the frontend check. Compare keeps its bare key on the PDP and in chat.</p>
 
 <h2><span class="n">07</span> PRs and order</h2>
-<p>One owner. DS stack first, then the BE table, then the DS client that reads it. Evals do not wait on the table.</p>
+<p>The implementation PRs already exist. Merge order: proto → A → B → C → table → bindings → D2 → FE. Manifest test lands after A. Evals do not wait on the table.</p>
 <table>
-  <thead><tr><th>#</th><th>Repo</th><th>Contents</th><th>Depends on</th></tr></thead>
+  <thead><tr><th></th><th>PR</th><th>Contents</th></tr></thead>
   <tbody>
-    <tr><td>1</td><td>datascience</td><td>Pill key parsing, frozen kind names, <code>PillSpec</code> / <code>PillData</code>, <code>REGISTRIES.pills</code>, catalog rows</td><td>—</td></tr>
-    <tr><td>2</td><td>datascience</td><td><code>resolve()</code> returning <code>PillData</code>; pipeline uses <code>PillData.prompt</code>; replaces the stub</td><td>1</td></tr>
-    <tr><td>3</td><td>datascience</td><td><code>FollowUpPill</code> definitions (compare preset, MLT add/relax/explore, product research, <code>ask</code>); encoder mints <code>kind:uuid</code></td><td>2</td></tr>
-    <tr><td>4</td><td>backend</td><td>Bindings table + put/lookup actions, TTL</td><td>2 (stored shape is <code>PillData</code> JSON)</td></tr>
-    <tr><td>5</td><td>datascience</td><td><code>resolve()</code> reads the table; encoder writes it</td><td>4 deployed</td></tr>
-    <tr><td>6</td><td>datascience</td><td>DAG ↔ registry manifest and Airflow test</td><td>1</td></tr>
-    <tr><td>7</td><td>backend → frontend</td><td><code>PillClickAction.pillKey</code> proto; frontend sends one tap shape</td><td>independent; FE after proto + DS deploy</td></tr>
-    <tr><td>8–10</td><td>datascience</td><td>Eval harness <code>pill_key</code>, pill-bank dataset, follow-up eval, online answer-rate view</td><td>1 (key names)</td></tr>
+    <tr><td>proto</td><td><a href="https://github.com/Faire/backend/pull/308837">backend#308837</a></td><td><code>PillClickAction.pillKey</code></td></tr>
+    <tr><td>A</td><td><a href="https://github.com/Faire/datascience/pull/70567">ds#70567</a></td><td>pill_key grammar, <code>PillSpec</code> / <code>PillData</code>, <code>REGISTRIES.pills</code>, catalog kinds</td></tr>
+    <tr><td>B</td><td><a href="https://github.com/Faire/datascience/pull/70583">ds#70583</a></td><td><code>resolve(pill_key, retailer) → PillData</code>; one tap path</td></tr>
+    <tr><td>C</td><td><a href="https://github.com/Faire/datascience/pull/70597">ds#70597</a></td><td>Follow-up pills as <code>FollowUpPill</code> rows in <code>REGISTRIES.follow_ups</code></td></tr>
+    <tr><td>table</td><td><a href="https://github.com/Faire/platform-configs/pull/49151">platform-configs#49151</a></td><td>Dynamo table <code>compass_pdp_chat_pill_bindings</code></td></tr>
+    <tr><td>bindings</td><td><a href="https://github.com/Faire/backend/pull/308802">backend#308802</a></td><td>put / lookup actions, TTL</td></tr>
+    <tr><td>D2</td><td><a href="https://github.com/Faire/datascience/pull/71115">ds#71115</a></td><td>store-first resolve (table, then <code>last_turn_pills</code>)</td></tr>
+    <tr><td>FE</td><td><a href="https://github.com/Faire/frontend/pull/89712">frontend#89712</a></td><td>one-shape taps (<code>pillKey</code> only)</td></tr>
+    <tr><td>after A</td><td><a href="https://github.com/Faire/datascience/pull/70574">ds#70574</a></td><td>manifest test: DAG may not serve a key outside catalog kinds</td></tr>
   </tbody>
 </table>
 
